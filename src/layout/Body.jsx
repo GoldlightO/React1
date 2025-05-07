@@ -8,21 +8,23 @@ const Body = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState("matrix");
+  const [contentType, setContentType] = useState("all"); // "all", "movie", "series"
 
-  const fetchMovies = async (search = "matrix") => {
+  const fetchMovies = async (search = "matrix", type = "all") => {
     try {
       setLoading(true);
       setError(null);
       
-      // Проверяем и очищаем поисковый запрос
       const query = search.trim();
       if (!query) {
         setError("Введите поисковый запрос");
         return;
       }
 
+      // Добавляем параметр type в запрос, если выбран не "all"
+      const typeParam = type !== "all" ? `&type=${type}` : "";
       const response = await fetch(
-        `https://www.omdbapi.com/?apikey=3155ba6d&s=${encodeURIComponent(query)}`
+        `https://www.omdbapi.com/?apikey=3155ba6d&s=${encodeURIComponent(query)}${typeParam}`
       );
 
       if (!response.ok) {
@@ -35,7 +37,12 @@ const Body = () => {
         setMovies([]);
         setError(data.Error || "Фильмы не найдены");
       } else {
-        setMovies(data.Search);
+        // Дополнительная фильтрация на клиенте (на случай, если API не точно фильтрует)
+        const filteredResults = type !== "all" 
+          ? data.Search.filter(item => item.Type === type) 
+          : data.Search;
+        
+        setMovies(filteredResults);
         setError(null);
       }
     } catch (err) {
@@ -47,19 +54,28 @@ const Body = () => {
     }
   };
 
-  // Загрузка при монтировании
   useEffect(() => {
-    fetchMovies(searchTerm);
+    fetchMovies(searchTerm, contentType);
   }, []);
 
-  const handleSearch = (term) => {
+  const handleSearch = (term, type = contentType) => {
     setSearchTerm(term);
-    fetchMovies(term);
+    fetchMovies(term, type);
+  };
+
+  const handleFilterChange = (type) => {
+    setContentType(type);
+    fetchMovies(searchTerm, type);
   };
 
   return (
     <main className="container content">
-      <Search searchMovies={handleSearch} initialValue={searchTerm} />
+      <Search 
+        searchMovies={handleSearch} 
+        initialValue={searchTerm}
+        onFilterChange={handleFilterChange}
+        currentType={contentType}
+      />
       
       {error && (
         <div className="error-message" style={{ color: "red", margin: "20px 0" }}>
